@@ -74,7 +74,7 @@ def my_agent(observation, configuration):
   board = Board(configuration)
   return complexModel(board, observation)
 
-def complexModel(board, observation, DEEPLEVEL = 4, withScore = False, count = 1):
+def complexModel(board, observation, DEEPLEVEL = 2, withScore = False, count = 1):
   currentState = board.assessState(observation)
   scoreList = -np.inf * np.ones(board.columns)
   for playOption in np.transpose(np.where(currentState["playOptions"])):
@@ -113,10 +113,11 @@ write_agent_to_file(my_agent, "submission.py")
 #%% Validate submission
 import sys
 out = sys.stdout
-submission = utils.read_file("/kaggle/working/submission.py")
+submission = utils.read_file("./submission.py")
 agent = utils.get_last_callable(submission)
 sys.stdout = out
 
 env = make("connectx", debug=True)
+env.reset()
 env.run([agent, agent])
 print("Success!" if env.state[0].status == env.state[1].status == "DONE" else "Failed...")
