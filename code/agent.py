@@ -22,6 +22,7 @@ def model(board, observation, lookAhead = 0, withScore = False):
   bestScore = np.max(scoreList)
   if (withScore): return { "play": bestPlay, "score": bestScore }
   return bestPlay
+
 #%% Agent class
 class Agent:
   def __init__(self, lookAhead, scoreFunc = False):
@@ -41,6 +42,6 @@ class Agent:
     env.run([testAgent.play, "negamax"])
     env.render(mode="ipython", width=500, height=450)
 
-#%% Test:
-print("Agent test")
-Agent.test()
+if __name__ == '__main__':
+  print("Agent test")
+  Agent.test()
