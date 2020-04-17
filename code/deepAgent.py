@@ -21,11 +21,12 @@ class ScoreModel(nn.Module):
     self.dense1 = nn.Linear(self.denseInputSize, self.config["columns"], bias="True")
 
   def forward(self, x):
+    x = torch.from_numpy(x).float()
     x = nn.functional.relu(self.conv1(x))
     x = nn.functional.relu(self.conv2(x))
     x = x.view(-1, self.denseInputSize)
     x = nn.functional.normalize(self.dense1(x))
-    return x
+    return x.detach().numpy()
 
   def mutate(self, genNumber, GAMMA):
     modelLayers = [
@@ -114,6 +115,42 @@ class DeepAgent():
     bestPlay = testAgent.play(observation, config)
     print("agents play: ", bestPlay)
     return 0
+
+class DeepAgent():
+  def __init__(self, scoreModel):
+    self.scoreModel = scoreModel
+
+  def play(self, observation, config, *args):
+    board = self.makeBoard(observation, config)
+    playableColumns = np.sum(board[0, 2, :, :], 0)
+    modelOutput = self.scoreModel.forward(board)[0]
+    validOutput = []
+    for i in range(config["columns"]):
+      if(playableColumns[i]):
+        validOutput.append(modelOutput[i])
+      else:
+        validOutput.append(-np.inf)
+
+    bestPlay = int(np.argmax(validOutput))
+    return bestPlay
+
+  def makeBoard(self, observation, config):
+    board = np.reshape(observation["board"], (config["rows"], config["columns"]))
+    myBoard = (board == observation["mark"])
+    opponentBoard = (board == 3 - observation["mark"]) # so that if I'm 2 then they are 1 and the opposite
+    openBoard = (board == 0)
+    playOptions = self.playOptions(openBoard)
+    board = np.zeros((1, 3, config["rows"], config["columns"]))
+    board[0, 0,:,:] = myBoard
+    board[0, 1,:,:] = opponentBoard
+    board[0, 2,:,:] = playOptions
+    return board
+
+  def playOptions(self, openBoard):
+    playOptionsFilter = np.array([[-1], [1]])
+    playOptions = spSig.convolve2d(openBoard, playOptionsFilter, mode='full', boundary='fill', fillvalue=0)
+    playOptions = (playOptions[1:, :] == 1)
+    return playOptions
 
 if __name__ == '__main__':
   test = ScoreModel.test()
