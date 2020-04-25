@@ -48,6 +48,9 @@ class ScoreModel(nn.Module):
           pass
     return self
 
+  def save(self, PATH):
+    torch.save(self.state_dict(), PATH)
+
   @staticmethod
   def test():
     print("\nTesting the Score model")
