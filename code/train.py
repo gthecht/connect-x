@@ -17,6 +17,7 @@ class Trainer:
     self.LOOK_AHEAD = 1
     self.NUM_ITERATIONS = 200
     self.EVAL_NUM = self.NUM_ITERATIONS / 10
+    self.SAVE_PATH = "../models/genetic_from_nil/"
 
     # variables:
     self.arena = Arena(self.AGENTS_NUM, self.HOUSE_SIZE)
@@ -60,7 +61,7 @@ class Trainer:
     print("winner scores:")
     print("ranks:", self.ranks)
     print("random:", randomScore)
-    print("negamax:", negamaxScore)
+    print("negamax:", negamaxScore)        
 
   def train(self):
     print("\nTraining...")
@@ -70,6 +71,8 @@ class Trainer:
       if i % self.EVAL_NUM == 0:
         print("\n\nIteration #%d:" % i)
         self.evaluate()
+        winnerInd = np.argmax(self.ranks)
+        self.winners[winnerInd].save(self.SAVE_PATH + i + ".pt")
 
 if __name__ == '__main__':
   trainer = Trainer()
