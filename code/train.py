@@ -69,7 +69,7 @@ class Trainer:
       print(datetime.now(), "- training iteration #%d:" % i)
       self.trainIteration()
       if i % self.EVAL_NUM == 0:
-        print("\n\nIteration #%d:" % i)
+        print("   Iteration #%d:" % i)
         self.evaluate()
         winnerInd = np.argmax(self.ranks)
         self.winners[winnerInd].save(self.SAVE_PATH + i + ".pt")
