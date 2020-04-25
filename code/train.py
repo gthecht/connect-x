@@ -17,11 +17,11 @@ class Trainer:
     self.LOOK_AHEAD = 1
     self.NUM_ITERATIONS = 200
     self.EVAL_NUM = self.NUM_ITERATIONS / 10
-    self.SAVE_PATH = "../models/genetic_from_nil/"
+    self.SAVE_PATH = "../models/genetic_from_nil_"
 
     # variables:
     self.arena = Arena(self.AGENTS_NUM, self.HOUSE_SIZE)
-    self.winnerArena = Arena(int(self.SURVIVAL_THRESHOLD * self.AGENTS_NUM))
+    self.winnerArena = Arena(int(self.SURVIVAL_THRESHOLD * self.AGENTS_NUM), int(self.SURVIVAL_THRESHOLD * self.AGENTS_NUM))
     self.evolution = Evolution(self.SURVIVAL_THRESHOLD, self.GAMMA)
     self.nets = []
     self.initNets()
@@ -72,7 +72,7 @@ class Trainer:
         print("   Iteration #%d:" % i)
         self.evaluate()
         winnerInd = np.argmax(self.ranks)
-        self.winners[winnerInd].save(self.SAVE_PATH + i + ".pt")
+        self.winners[winnerInd].save(self.SAVE_PATH + str(i) + ".pt")
 
 if __name__ == '__main__':
   trainer = Trainer()
