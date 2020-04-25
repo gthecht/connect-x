@@ -11,6 +11,7 @@ class ScoreModel(nn.Module):
     self.conv1 = nn.Conv2d(3, 32, config["inarow"])  # Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
     self.conv2 = nn.Conv2d(32, 64, 3)
     self.createDenseLayer()
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
   # calculates the input size of the dense layer:
   def createDenseLayer(self):
@@ -22,10 +23,14 @@ class ScoreModel(nn.Module):
 
   def forward(self, x):
     x = torch.from_numpy(x).float()
+    if self.device.type == "cuda":
+      x = x.to(self.device)
     x = nn.functional.relu(self.conv1(x))
     x = nn.functional.relu(self.conv2(x))
     x = x.view(-1, self.denseInputSize)
     x = nn.functional.normalize(self.dense1(x))
+    if x.device.type == "cuda":
+      x = x.to("cpu")
     return x.detach().numpy()
 
   def mutate(self, genNumber, GAMMA):
@@ -36,9 +41,9 @@ class ScoreModel(nn.Module):
     ]
 
     for layer in modelLayers:
-      layer.weight.data += torch.randn(layer.weight.data.shape) * np.exp(-GAMMA * genNumber)
+      layer.weight.data += (torch.randn(layer.weight.data.shape) * np.exp(-GAMMA * genNumber)).to(self.device)
       try:
-        layer.bias.data += torch.randn(layer.bias.data.shape) * np.exp(-GAMMA * genNumber)
+        layer.bias.data += (torch.randn(layer.bias.data.shape) * np.exp(-GAMMA * genNumber)).to(self.device)
       except:
           pass
     return self
@@ -64,6 +69,8 @@ class ScoreModel(nn.Module):
 class DeepAgent():
   def __init__(self, scoreModel):
     self.scoreModel = scoreModel
+    if self.scoreModel.device.type == "cuda":
+      self.scoreModel.to(self.scoreModel.device)
 
   def play(self, observation, config, *args):
     board = self.makeBoard(observation, config)
@@ -115,42 +122,6 @@ class DeepAgent():
     bestPlay = testAgent.play(observation, config)
     print("agents play: ", bestPlay)
     return 0
-
-class DeepAgent():
-  def __init__(self, scoreModel):
-    self.scoreModel = scoreModel
-
-  def play(self, observation, config, *args):
-    board = self.makeBoard(observation, config)
-    playableColumns = np.sum(board[0, 2, :, :], 0)
-    modelOutput = self.scoreModel.forward(board)[0]
-    validOutput = []
-    for i in range(config["columns"]):
-      if(playableColumns[i]):
-        validOutput.append(modelOutput[i])
-      else:
-        validOutput.append(-np.inf)
-
-    bestPlay = int(np.argmax(validOutput))
-    return bestPlay
-
-  def makeBoard(self, observation, config):
-    board = np.reshape(observation["board"], (config["rows"], config["columns"]))
-    myBoard = (board == observation["mark"])
-    opponentBoard = (board == 3 - observation["mark"]) # so that if I'm 2 then they are 1 and the opposite
-    openBoard = (board == 0)
-    playOptions = self.playOptions(openBoard)
-    board = np.zeros((1, 3, config["rows"], config["columns"]))
-    board[0, 0,:,:] = myBoard
-    board[0, 1,:,:] = opponentBoard
-    board[0, 2,:,:] = playOptions
-    return board
-
-  def playOptions(self, openBoard):
-    playOptionsFilter = np.array([[-1], [1]])
-    playOptions = spSig.convolve2d(openBoard, playOptionsFilter, mode='full', boundary='fill', fillvalue=0)
-    playOptions = (playOptions[1:, :] == 1)
-    return playOptions
 
 if __name__ == '__main__':
   test = ScoreModel.test()
