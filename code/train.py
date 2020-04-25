@@ -4,7 +4,7 @@ from deepAgent import ScoreModel
 from deepAgent import DeepAgent
 from arena import Arena
 from evolution import Evolution
-
+from datetime import datetime
 class Trainer:
   NUM_EPISODES = 1
   def __init__(self):
@@ -20,6 +20,7 @@ class Trainer:
 
     # variables:
     self.arena = Arena(self.AGENTS_NUM, self.HOUSE_SIZE)
+    self.winnerArena = Arena(int(self.SURVIVAL_THRESHOLD * self.AGENTS_NUM))
     self.evolution = Evolution(self.SURVIVAL_THRESHOLD, self.GAMMA)
     self.nets = []
     self.initNets()
@@ -50,21 +51,21 @@ class Trainer:
     self.ranks = outcome["ranks"]
 
   def evaluate(self):
-    winnerArena = Arena(int(self.SURVIVAL_THRESHOLD * self.AGENTS_NUM))
-    winnerArena.arrangeMatches()
+    self.winnerArena.arrangeMatches()
     agents = [DeepAgent(net) for net in self.winners]
-    matchOutcome = winnerArena.runTournement(agents, self.match)
+    matchOutcome = self.winnerArena.runTournement(agents, self.match)
     self.ranks = np.sum(matchOutcome, 1)
     randomScore =  [self.match(agent.play, "random")[0] for agent in agents]
     negamaxScore = [self.match(agent.play, "negamax")[0] for agent in agents]
     print("winner scores:")
-    print("ranks | random | negamax:")
-    print([self.ranks, randomScore, negamaxScore])
+    print("ranks:", self.ranks)
+    print("random:", randomScore)
+    print("negamax:", negamaxScore)
 
   def train(self):
     print("\nTraining...")
     for i in range(self.NUM_ITERATIONS):
-      print("training iteration #%d:" % i)
+      print(datetime.now(), "- training iteration #%d:" % i)
       self.trainIteration()
       if i % self.EVAL_NUM == 0:
         print("\n\nIteration #%d:" % i)
