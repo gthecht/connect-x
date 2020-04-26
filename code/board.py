@@ -25,7 +25,7 @@ class Board:
     # return (max(np.amax(outcome) for name, outcome in outcomeDict.items()) / self.inarow)  ** self.SCOREPOWER
     # return sum(np.sum((outcome > 0) * np.power(outcome, self.SCOREPOWER)) for name, outcome in outcomeDict.items())
 
-  def checkState(self, myBoard, opponentBoard, openBoard):
+  def filtersOutCome(self, myBoard, opponentBoard):
     gameFilters = { 
       "vertical": np.ones((self.inarow,1)),
       "horizontal": np.ones((1,self.inarow)),
@@ -35,7 +35,9 @@ class Board:
 
     filtersOutCome = { name: spSig.convolve2d(myBoard - self.inarow * opponentBoard, filter, mode="valid") \
                       for name, filter in gameFilters.items() }
-    
+    return filtersOutCome
+
+  def openBelow(self, openBoard, gameFilters):
     openBelowFilters = {
       "vertical": np.concatenate((np.zeros((self.inarow, 1)), np.ones((self.rows - self.inarow, 1))), axis = 0),
       "horizontal": np.concatenate((np.zeros((1, self.inarow)), np.ones((self.rows - 1, self.inarow))), axis = 0),
@@ -45,7 +47,13 @@ class Board:
 
     openBelow = { name: np.flipud(convolve(1 * (openBoard), filter, mode="constant", cval=0, origin=[-int((self.rows ) / 2), \
                 int((filter.shape[1] - 1) / 2)])) for name, filter in openBelowFilters.items() }
-    openBelow = { name: matrix[0:filtersOutCome[name].shape[0], 0:filtersOutCome[name].shape[1]] for name, matrix in openBelow.items() }
+    openBelow = { name: matrix[0:gameFilters[name].shape[0], 0:gameFilters[name].shape[1]] \
+                  for name, matrix in openBelow.items() }
+    return openBelow
+
+  def checkState(self, myBoard, opponentBoard, openBoard):
+    filtersOutCome = self.filtersOutCome(myBoard, opponentBoard)
+    openBelow = self.openBelow(openBoard, filtersOutCome)
     return { "filtersOutCome": filtersOutCome, "openBelow": openBelow }
 
   def playOptions(self, openBoard):
@@ -53,28 +61,32 @@ class Board:
     playOptions = spSig.convolve2d(openBoard, playOptionsFilter, mode='full', boundary='fill', fillvalue=0)
     playOptions = (playOptions[1:, :] == 1)
     return playOptions
-    
-  def assessState(self, observation):
+
+  def makeBoard(self, observation):
     self.board = np.reshape(observation["board"], (self.rows, self.columns))
     myBoard = (self.board == observation["mark"])
     opponentBoard = (self.board == 3 - observation["mark"]) # so that if I'm 2 then they are 1 and the opposite
     openBoard = (self.board == 0)
     playOptions = self.playOptions(openBoard)
+    return {
+      "myBoard": myBoard,
+      "opponentBoard": opponentBoard,
+      "openBoard": openBoard,
+      "playOptions": playOptions
+    }
+    
+  def assessState(self, observation):
+    self.boardState = self.makeBoard(observation)
     #states
-    myState = self.checkState(myBoard, opponentBoard, openBoard)
+    myState = self.checkState(self.boardState["myBoard"], self.boardState["opponentBoard"], self.boardState["openBoard"])
     myScore = self.scoreFunc(myState["filtersOutCome"], myState["openBelow"])
-    opponentState = self.checkState(opponentBoard, myBoard, openBoard)
+    opponentState = self.checkState(self.boardState["opponentBoard"], self.boardState["myBoard"], self.boardState["openBoard"])
     opponentScore = self.scoreFunc(opponentState["filtersOutCome"], opponentState["openBelow"])
     score = myScore - opponentScore
 
-    self.boardState = { 
-      "score": score,
-      "myBoard": myBoard,
-      "opponentBoard": opponentBoard,
-      "playOptions": playOptions,
-      "myState": myState,
-      "opponentState": opponentState
-    }
+    self.boardState["score"] = score
+    self.boardState["myState"] = myState
+    self.boardState["opponentState"] = opponentState
     return self.boardState
 
   @staticmethod
