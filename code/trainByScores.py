@@ -11,10 +11,11 @@ from board import Board
 class ScoreTrainer:
   def __init__(self):
     #constants
-    self.NUM_ITERATIONS = 2000
+    self.NUM_ITERATIONS = 1000
     self.EVAL_NUM = self.NUM_ITERATIONS / 20
-    self.SAVE_PATH = "../models/score_training_"
-    self.LOOK_AHEAD = 1
+    self.NUM_EPOCHS = 5
+    self.LOOK_AHEAD = 1 # 3 maybe after the initial training.
+    self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
     self.config = { 'timeout': 5, 'columns': 7, 'rows': 6, 'inarow': 4, 'steps': 1000 }
     self.NEW_GAME = { 
       'board': [0] * self.config["columns"] * self.config["rows"],
@@ -90,7 +91,9 @@ class ScoreTrainer:
     observation["mark"] = 3 - observation["mark"]
     return observation
   
-  def trainIteration(self, trainBoards, groundTruth):
+  def trainIteration(self):
+    trainBoards = []
+    groundTruth = []
     observation = copy.deepcopy(self.NEW_GAME)
     while self.checkWin(observation) == 0:
       boardTensor = self.makeBoard(observation)
@@ -100,11 +103,29 @@ class ScoreTrainer:
       observation = self.playTurn(observation, modelOutput)
     # print("board:\n", np.reshape(observation["board"], (6, 7)))
     self.scoreModel.back(trainBoards, groundTruth)
+    return { "trainBoards": trainBoards, "groundTruth": groundTruth}
+
+  def trainEpoch(self):
+    trainBoards = []
+    groundTruth = []
+    for i in range(self.NUM_ITERATIONS):
+      # print(datetime.now(), "- training iteration #%d:" % i)
+      iterationData = self.trainIteration()
+      trainBoards.extend(iterationData["trainBoards"])
+      groundTruth.extend(iterationData["groundTruth"])
+      if (i + 1) % self.EVAL_NUM == 0:
+        print(datetime.now())
+        print(">>Iteration #%d:" % i)
+        self.evaluate()
+        self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
+    for i in range(self.NUM_EPOCHS):
+      self.scoreModel.back(trainBoards, groundTruth)
+    return { "trainBoards": trainBoards, "groundTruth": groundTruth}
 
   @staticmethod
   def match(agent0, agent1):
-    rewards0 = evaluate("connectx", [agent0, agent1], num_episodes=1)
-    rewards1 = evaluate("connectx", [agent1, agent0], num_episodes=1)
+    rewards0 = evaluate("connectx", [agent0, agent1], num_episodes=3)
+    rewards1 = evaluate("connectx", [agent1, agent0], num_episodes=3)
     out0 = sum(r[0] for r in rewards0) / sum(r[0] + r[1] for r in rewards0)
     out1 = sum(r[1] for r in rewards1) / sum(r[0] + r[1] for r in rewards1)
     out = 0.5 * (out0 + out1)
@@ -113,28 +134,26 @@ class ScoreTrainer:
   def evaluate(self):
     print(">>  winner scores:")
     print(">>  random:", self.match(self.agent.play, "random"))
-    print(">>  negamax:", self.match(self.agent.play, "negamax")) 
+    print(">>  negamax:", self.match(self.agent.play, "negamax"))
 
   def train(self):
     trainBoards = []
     groundTruth = []
-    for i in range(self.NUM_ITERATIONS):
-      print(datetime.now(), "- training iteration #%d:" % i)
-      self.trainIteration(trainBoards, groundTruth)
-      if (i + 1) % self.EVAL_NUM == 0:
-        print(">>Iteration #%d:" % i)
-        self.evaluate()
-        self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
+    for epoch in range(3):
+      epochData = self.trainEpoch()
+      trainBoards.extend(epochData["trainBoards"])
+      groundTruth.extend(epochData["groundTruth"])
+      self.LOOK_AHEAD += 2
+      self.NUM_ITERATIONS = int(self.NUM_ITERATIONS / 2)
+      self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
 
   @staticmethod
   def test():
     trainer = ScoreTrainer()
-    trainBoards = []
-    groundTruth = []
     for i in range(2):
-      trainer.trainIteration(trainBoards, groundTruth)
+      trainer.trainIteration()
 
 if __name__ == '__main__':
-  print("\n\n Score Trainer Training session")
+  print("\n\nScore Trainer Training session")
   trainer = ScoreTrainer()
   trainer.train()
