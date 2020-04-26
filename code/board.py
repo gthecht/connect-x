@@ -60,13 +60,11 @@ class Board:
     opponentBoard = (self.board == 3 - observation["mark"]) # so that if I'm 2 then they are 1 and the opposite
     openBoard = (self.board == 0)
     playOptions = self.playOptions(openBoard)
-
+    #states
     myState = self.checkState(myBoard, opponentBoard, openBoard)
     myScore = self.scoreFunc(myState["filtersOutCome"], myState["openBelow"])
-    
     opponentState = self.checkState(opponentBoard, myBoard, openBoard)
     opponentScore = self.scoreFunc(opponentState["filtersOutCome"], opponentState["openBelow"])
-    
     score = myScore - opponentScore
 
     self.boardState = { 
@@ -80,7 +78,7 @@ class Board:
     return self.boardState
 
   @staticmethod
-  def test(printStates):
+  def test():
     observation = { 
       'board': [0, 0, 0, 0, 0, 0, 0,
                 0, 1, 0, 0, 0, 0, 0,
@@ -88,12 +86,6 @@ class Board:
                 0, 1, 0, 2, 2, 1, 0,
                 0, 2, 2, 1, 1, 1, 0,
                 0, 2, 1, 1, 2, 1, 0],
-      # 'board': [0, 0, 0, 0, 0, 0, 0,
-      #           0, 0, 0, 0, 0, 0, 0,
-      #           0, 0, 0, 0, 0, 0, 0,
-      #           0, 0, 0, 0, 0, 0, 0,
-      #           0, 0, 0, 0, 0, 0, 0,
-      #           0, 0, 0, 0, 0, 0, 0],
       'mark': 1
     }
 
@@ -103,16 +95,6 @@ class Board:
     print("  BOARD STATUS:")
     print(1 * state["myBoard"] + 2 * state["opponentBoard"] + 3 * state["playOptions"])
     print("  MY SCORE: ", state["score"])
-    if (printStates):
-      print("\nMy state:")
-      print("maximum value: ", state["myState"]["maxValue"])
-      print("vertical:")
-      print(state["myState"]["filtersOutCome"]["vertical"])
-      print("horizontal:")
-      print(state["myState"]["filtersOutCome"]["horizontal"])
-      print("mainDiag: ")
-      print(state["myState"]["filtersOutCome"]["mainDiag"])
-      print("subDiag:")
-      print(state["myState"]["filtersOutCome"]["subDiag"])
 
-# Board.test(False)
+if __name__ == '__main__':
+  Board.test()
