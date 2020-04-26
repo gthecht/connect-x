@@ -131,3 +131,6 @@ dmypy.json
 # office:
 *.docx
 *.pptx
+
+# models:
+/models/*
