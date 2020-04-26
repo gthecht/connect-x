@@ -3,15 +3,18 @@ from numpy import random as rand
 from scipy import signal as spSig
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 class ScoreModel(nn.Module):
-  def __init__(self, config):
+  def __init__(self, config, LearningRate = 0.01):
     super(ScoreModel, self).__init__()
     self.config = config
+    self.criterion = nn.MSELoss()
     self.conv1 = nn.Conv2d(3, 32, config["inarow"])  # Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
     self.conv2 = nn.Conv2d(32, 64, 3)
     self.createDenseLayer()
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    self.optimizer = optim.SGD(self.parameters(), lr=LearningRate)
 
   # calculates the input size of the dense layer:
   def createDenseLayer(self):
@@ -22,16 +25,33 @@ class ScoreModel(nn.Module):
     self.dense1 = nn.Linear(self.denseInputSize, self.config["columns"], bias="True")
 
   def forward(self, x):
-    x = torch.from_numpy(x).float()
-    if self.device.type == "cuda":
-      x = x.to(self.device)
     x = nn.functional.relu(self.conv1(x))
     x = nn.functional.relu(self.conv2(x))
     x = x.view(-1, self.denseInputSize)
     x = nn.functional.normalize(self.dense1(x))
-    if x.device.type == "cuda":
-      x = x.to("cpu")
-    return x.detach().numpy()
+    return x
+
+  def play(self, input):
+    input = torch.from_numpy(input).float()
+    if self.device.type == "cuda":
+      input = input.to(self.device)
+    output = self.forward(input)
+    output = self.forward(input)
+    if output.device.type == "cuda":
+      output = output.to("cpu")
+    return output.detach().numpy()
+
+  def back(self, input, GT):
+    input = torch.Tensor(input).float()
+    if self.device.type == "cuda":
+      input = input.to(self.device)
+    self.zero_grad()
+    output = self.forward(input)
+    GT = (nn.functional.normalize(torch.Tensor(GT))).to(self.device)
+    loss = self.criterion(output, GT)
+    loss.backward()
+    self.optimizer.step()
+    return
 
   def mutate(self, genNumber, GAMMA):
     modelLayers = [
@@ -78,7 +98,7 @@ class DeepAgent():
   def play(self, observation, config, *args):
     board = self.makeBoard(observation, config)
     playableColumns = np.sum(board[0, 2, :, :], 0)
-    modelOutput = self.scoreModel.forward(board)[0]
+    modelOutput = self.scoreModel.play(board)[0]
     validOutput = []
     for i in range(config["columns"]):
       if(playableColumns[i]):
