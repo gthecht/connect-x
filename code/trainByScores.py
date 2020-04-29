@@ -13,7 +13,7 @@ from agent import Agent
 class ScoreTrainer:
   def __init__(self):
     #constants
-    self.NUM_ITERATIONS = 5000
+    self.NUM_ITERATIONS = 200
     self.EVAL_NUM = 100 # self.NUM_ITERATIONS / 20
     self.NUM_EPOCHS = 20
     self.LOOK_AHEAD = 1
@@ -97,32 +97,32 @@ class ScoreTrainer:
   def trainIteration(self):
     trainBoards = []
     groundTruth = []
-    accuracy = []
+    loss = []
     observation = copy.deepcopy(self.NEW_GAME)
     while self.checkWin(observation) == 0:
       boardTensor = self.makeBoard(observation)
       trainBoards.append(np.squeeze(boardTensor))
-      groundTruth.append( self.getNextMove(observation)) # no normalization
+      groundTruth.append(self.getNextMove(observation))
       modelOutput = self.scoreModel.play(boardTensor)[0]
       observation = self.playTurn(observation, modelOutput)
     # print("board:\n", np.reshape(observation["board"], (6, 7)))
-    accuracy.append(self.scoreModel.back(trainBoards, groundTruth))
-    return { "trainBoards": trainBoards, "groundTruth": groundTruth, "accuracy": accuracy }
+    loss.append(self.scoreModel.back(trainBoards, groundTruth))
+    return { "trainBoards": trainBoards, "groundTruth": groundTruth, "loss": loss }
 
   def trainEpoch(self):
     trainBoards = []
     groundTruth = []
-    accuracy = []
+    loss = []
     for i in range(self.NUM_ITERATIONS):
       # print(datetime.now(), "- training iteration #%d:" % i)
       iterationData = self.trainIteration()
       trainBoards.extend(iterationData["trainBoards"])
       groundTruth.extend(iterationData["groundTruth"])
-      accuracy.extend(iterationData["accuracy"])
+      loss.extend(iterationData["loss"])
       if (i + 1) % self.EVAL_NUM == 0:
         print(datetime.now())
         print(">>Iteration #%d:" % i)
-        print(">>  Accuracy:", accuracy[-1])
+        print(">>  Accuracy:", loss[-1])
         self.evaluate()
         self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
     print("\n>>Running retrain")
@@ -133,8 +133,8 @@ class ScoreTrainer:
         tb = [trainBoards[i] for i in currIndices]
         gt = [groundTruth[i] for i in currIndices]
         self.scoreModel.back(tb, gt)
-    plt.scatter(range(len(accuracy)), accuracy)
-    return { "trainBoards": trainBoards, "groundTruth": groundTruth, "accuracy": accuracy }
+    plt.scatter(range(len(loss)), loss)
+    return { "trainBoards": trainBoards, "groundTruth": groundTruth, "loss": loss }
 
   @staticmethod
   def match(agent0, agent1):
@@ -155,16 +155,23 @@ class ScoreTrainer:
   def train(self):
     trainBoards = []
     groundTruth = []
-    accuracy = []
+    loss = []
     for i in range(2):
       epochData = self.trainEpoch()
       trainBoards.extend(epochData["trainBoards"])
       groundTruth.extend(epochData["groundTruth"])
-      accuracy.extend(epochData["accuracy"])
+      loss.extend(epochData["loss"])
       self.LOOK_AHEAD += 2
       self.NUM_ITERATIONS = int(self.NUM_ITERATIONS / 2)
       self.EVAL_NUM = int(self.EVAL_NUM / 2)
       self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
+
+  # def randomTrain(self):
+  #   trainBoards = []
+  #   groundTruth = []
+  #   for i in range(1E5):
+  #     unplayed = self.config["columns"] * [self.config["rows"]]
+      
 
   @staticmethod
   def test():

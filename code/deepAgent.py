@@ -30,7 +30,7 @@ class ScoreModel(nn.Module):
     x = nn.functional.relu(self.conv2(x))
     x = x.view(-1, self.denseInputSize)
     x = nn.functional.relu(self.dense1(x))
-    x = nn.functional.normalize(self.dense2(x))
+    x = nn.functional.softmax(self.dense2(x), dim=1)
     return x
 
   def play(self, input):
@@ -49,7 +49,7 @@ class ScoreModel(nn.Module):
       input = input.to(self.device)
     self.zero_grad()
     output = self.forward(input)
-    GT = (nn.functional.normalize(torch.Tensor(GT))).to(self.device)
+    GT = (nn.functional.softmax(torch.Tensor(GT), dim=1)).to(self.device)
     loss = self.criterion(output, GT)
     loss.backward()
     self.optimizer.step()
