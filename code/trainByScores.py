@@ -1,5 +1,6 @@
 from kaggle_environments import evaluate, make, utils
 import numpy as np
+from numpy import random as rand
 import matplotlib.pyplot as plt
 import copy
 from scipy import signal as spSig
@@ -13,9 +14,10 @@ from agent import Agent
 class ScoreTrainer:
   def __init__(self):
     #constants
-    self.NUM_ITERATIONS = 200
+    self.NUM_ITERATIONS = 300
     self.EVAL_NUM = 100 # self.NUM_ITERATIONS / 20
-    self.NUM_EPOCHS = 20
+    self.NUM_EPOCHS = 40
+    self.BATCH_SIZE = 500
     self.LOOK_AHEAD = 1
     self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
     self.config = { 'timeout': 5, 'columns': 7, 'rows': 6, 'inarow': 4, 'steps': 1000 }
@@ -32,6 +34,7 @@ class ScoreTrainer:
 
   @staticmethod
   def scoreFunc(outcomeDict, openBelow):
+    # if(max(outcome) == self.config["inarow"]): return self.MAX_SCORE
     return sum(np.sum((outcome > 0) * np.power(outcome, 3) / (openBelow[name] + 1)) for name, outcome in outcomeDict.items())
     # Options for scoreFunc:
     # return (max(np.amax(outcome) for name, outcome in outcomeDict.items()) / self.inarow)  ** self.SCOREPOWER
@@ -122,18 +125,21 @@ class ScoreTrainer:
       if (i + 1) % self.EVAL_NUM == 0:
         print(datetime.now())
         print(">>Iteration #%d:" % i)
-        print(">>  Accuracy:", loss[-1])
+        print(">>  Loss:", loss[-1])
         self.evaluate()
         self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
     print("\n>>Running retrain")
+    epochLoss = []
     for i in range(self.NUM_EPOCHS):
       perm = np.random.permutation(range(len(groundTruth)))
       for i in range(int(len(perm) / 500)):
         currIndices = perm[500 * i : 500 * (i + 1)]
         tb = [trainBoards[i] for i in currIndices]
         gt = [groundTruth[i] for i in currIndices]
-        self.scoreModel.back(tb, gt)
-    plt.scatter(range(len(loss)), loss)
+        epochLoss.append(self.scoreModel.back(tb, gt))
+        print(">>  Loss:", epochLoss[-1])
+      self.evaluate()
+    plt.scatter(range(len(epochLoss)), epochLoss)
     return { "trainBoards": trainBoards, "groundTruth": groundTruth, "loss": loss }
 
   @staticmethod
@@ -149,14 +155,14 @@ class ScoreTrainer:
     agent = Agent(self.LOOK_AHEAD)
     print(">>  winner scores:")
     print(">>  random:", self.match(self.agent.play, "random"))
-    print(">>  negamax:", self.match(self.agent.play, "negamax"))
+    # print(">>  negamax:", self.match(self.agent.play, "negamax"))
     print(">>  trainer:", self.match(self.agent.play, agent.play))
 
   def train(self):
     trainBoards = []
     groundTruth = []
     loss = []
-    for i in range(2):
+    for i in range(1):
       epochData = self.trainEpoch()
       trainBoards.extend(epochData["trainBoards"])
       groundTruth.extend(epochData["groundTruth"])
@@ -166,12 +172,39 @@ class ScoreTrainer:
       self.EVAL_NUM = int(self.EVAL_NUM / 2)
       self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
 
-  # def randomTrain(self):
-  #   trainBoards = []
-  #   groundTruth = []
-  #   for i in range(1E5):
-  #     unplayed = self.config["columns"] * [self.config["rows"]]
-      
+  def randomTrain(self):
+    trainBoards = []
+    groundTruth = []
+    loss = []
+    for i in range(1000):
+      print("iteration", i)
+      observation = copy.deepcopy(self.NEW_GAME)
+      unplayed = self.config["columns"] * [self.config["rows"]]
+      while self.checkWin(observation) == 0:
+        boardTensor = self.makeBoard(observation)
+        trainBoards.append(np.squeeze(boardTensor))
+        groundTruth.append(self.getNextMove(observation))
+        move = rand.randint(self.config["columns"])
+        while unplayed[int(move)] == 0:
+          move = rand.randint(self.config["columns"])
+
+        unplayed[int(move)] -= 1
+        play = [0] * self.config["columns"]
+        play[int(move)] = 1
+        observation = self.playTurn(observation, play)
+
+    for i in range(self.NUM_EPOCHS):
+      perm = np.random.permutation(range(len(groundTruth)))
+      self.SAVE_PATH = "../models/score_training_random_epoch_"
+      for i in range(int(len(perm) / self.BATCH_SIZE)):
+        currIndices = perm[self.BATCH_SIZE * i : self.BATCH_SIZE * (i + 1)]
+        tb = [trainBoards[i] for i in currIndices]
+        gt = [groundTruth[i] for i in currIndices]
+        loss.append(self.scoreModel.back(tb, gt))
+      print(">>  Loss:", loss[-1])
+      self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
+    plt.scatter(range(len(loss)), loss)
+
 
   @staticmethod
   def test():
@@ -182,4 +215,5 @@ class ScoreTrainer:
 if __name__ == '__main__':
   print("\n\nScore Trainer Training session")
   trainer = ScoreTrainer()
-  trainer.train()
+  # trainer.train()
+  trainer.randomTrain()
