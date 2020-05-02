@@ -9,7 +9,7 @@ class ScoreModel(nn.Module):
   def __init__(self, config, LearningRate = 0.01):
     super(ScoreModel, self).__init__()
     self.config = config
-    self.criterion = nn.MSELoss()
+    self.criterion = nn.MSELoss(reduction="sum")
     self.conv1 = nn.Conv2d(3, 64, config["inarow"])  # Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)
     self.conv2 = nn.Conv2d(64, 128, 3)
     self.createDenseLayers()
