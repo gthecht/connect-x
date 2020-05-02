@@ -3,6 +3,7 @@ import numpy as np
 from numpy import random as rand
 import matplotlib.pyplot as plt
 import copy
+import json
 from scipy import signal as spSig
 from datetime import datetime
 
@@ -14,11 +15,11 @@ from agent import Agent
 class ScoreTrainer:
   def __init__(self):
     #constants
-    self.NUM_ITERATIONS = 300
+    self.NUM_ITERATIONS = 2000
     self.EVAL_NUM = 100 # self.NUM_ITERATIONS / 20
-    self.NUM_EPOCHS = 40
+    self.NUM_EPOCHS = 10
     self.BATCH_SIZE = 500
-    self.LOOK_AHEAD = 1
+    self.LOOK_AHEAD = 3
     self.SAVE_PATH = "../models/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_"
     self.config = { 'timeout': 5, 'columns': 7, 'rows': 6, 'inarow': 4, 'steps': 1000 }
     self.NEW_GAME = { 
@@ -128,6 +129,11 @@ class ScoreTrainer:
         print(">>  Loss:", loss[-1])
         self.evaluate()
         self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
+    writeObj = json.dumps({ "trainBoards": trainBoards, "groundTruth": groundTruth, "loss": loss })
+    file = open("../data/score_training_lookAhead_" + str(self.LOOK_AHEAD) + "_" + datetime.now())
+    file.write(writeObj)
+    file.close()
+    
     print("\n>>Running retrain")
     epochLoss = []
     for i in range(self.NUM_EPOCHS):
@@ -154,9 +160,13 @@ class ScoreTrainer:
   def evaluate(self):
     agent = Agent(self.LOOK_AHEAD)
     print(">>  winner scores:")
-    print(">>  random:", self.match(self.agent.play, "random"))
-    # print(">>  negamax:", self.match(self.agent.play, "negamax"))
-    print(">>  trainer:", self.match(self.agent.play, agent.play))
+    try:
+      print(">>  random:", self.match(self.agent.play, "random"))
+      print(">>  negamax:", self.match(self.agent.play, "negamax"))
+      print(">>  trainer:", self.match(self.agent.play, agent.play))
+    except:
+      print("match returned error")
+
 
   def train(self):
     trainBoards = []
@@ -201,7 +211,7 @@ class ScoreTrainer:
         tb = [trainBoards[i] for i in currIndices]
         gt = [groundTruth[i] for i in currIndices]
         loss.append(self.scoreModel.back(tb, gt))
-      print(">>  Loss:", loss[-1])
+      # print(">>  Loss:", loss[-1])
       self.scoreModel.save(self.SAVE_PATH + str(i) + ".pt")
     plt.scatter(range(len(loss)), loss)
 
@@ -215,5 +225,5 @@ class ScoreTrainer:
 if __name__ == '__main__':
   print("\n\nScore Trainer Training session")
   trainer = ScoreTrainer()
-  # trainer.train()
-  trainer.randomTrain()
+  # trainer.randomTrain()
+  trainer.train()
